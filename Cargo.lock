@@ -112,10 +112,10 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "poise",
+ "quick-xml",
  "shuttle-runtime",
  "shuttle-serenity",
  "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -1318,6 +1318,15 @@ dependencies = [
  "bitflags 2.9.1",
  "memchr",
  "unicase",
+]
+
+[[package]]
+name = "quick-xml"
+version = "0.38.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8927b0664f5c5a98265138b7e3f90aa19a6b21353182469ace36d4ac527b7b1b"
+dependencies = [
+ "memchr",
 ]
 
 [[package]]
