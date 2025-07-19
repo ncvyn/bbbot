@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 anyhow = "1.0.98"
 chrono = "0.4.41"
+fast_html2md = "0.0.48"
 poise = "0.6.1"
 quick-xml = "0.38.0"
 reqwest = "0.12.22"
