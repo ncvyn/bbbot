@@ -111,6 +111,7 @@ name = "bbbot"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "poise",
  "quick-xml",
  "reqwest 0.12.22",
