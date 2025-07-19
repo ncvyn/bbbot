@@ -28,9 +28,6 @@ async fn main(#[shuttle_runtime::Secrets] secret_store: SecretStore) -> ShuttleS
     let discord_token = secret_store
         .get("DISCORD_TOKEN")
         .context("'DISCORD_TOKEN' was not found")?;
-    // secret_store
-    //     .get("XML_FEED")
-    //     .context("'XML_FEED' was not found")?,
 
     XML_FEED.lock().await.push_str(
         &secret_store
