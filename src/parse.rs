@@ -3,7 +3,7 @@ use quick_xml::events::Event;
 use quick_xml::reader::Reader;
 use tokio::sync::Mutex;
 
-const CUTOFF_DAYS: i64 = 7;
+const DAYS_CUTOFF: i64 = 7;
 
 pub async fn parse_xml(xml_feed: &Mutex<String>) {
     let response = reqwest::get(xml_feed.lock().await.as_str())
@@ -28,7 +28,7 @@ pub async fn parse_xml(xml_feed: &Mutex<String>) {
                     .expect("Cannot decode text value");
 
                 let date = DateTime::parse_from_rfc3339(&text).expect("Invalid date format");
-                let cutoff = Utc::now() - chrono::Duration::days(CUTOFF_DAYS);
+                let cutoff = Utc::now() - chrono::Duration::days(DAYS_CUTOFF);
 
                 if date < cutoff {
                     break;
