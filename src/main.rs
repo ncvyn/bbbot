@@ -21,8 +21,11 @@ const INTERVAL_SECS: u64 = 300; // 5 minutes
 async fn check(ctx: Context<'_>) -> Result<(), Error> {
     let secrets = &ctx.data().secrets;
     let client = ctx.data().client.clone();
+
     let message = parse::parse_xml(secrets, client).await;
+
     ctx.say(message).await?;
+
     Ok(())
 }
 

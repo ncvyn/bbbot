@@ -1,9 +1,24 @@
 use chrono::{DateTime, Utc};
+use poise::serenity_prelude::json::json;
 use quick_xml::events::Event;
 use quick_xml::reader::Reader;
 use reqwest::Client;
+use serde::Deserialize;
 
-const DAYS_CUTOFF: i64 = 7;
+#[derive(Deserialize)]
+struct Entry {
+    #[serde(rename = "_id")]
+    id: String,
+    last_updated: i64,
+    due_assignments: Vec<Assignment>,
+}
+
+#[derive(Deserialize)]
+struct Assignment {
+    subject: String,
+    title: String,
+    due_date: String,
+}
 
 pub async fn parse_xml(secrets: &str, client: Client) -> String {
     let [xml_feed, restdb_api_key, restdb_database]: [&str; 3] = secrets
@@ -12,7 +27,7 @@ pub async fn parse_xml(secrets: &str, client: Client) -> String {
         .try_into()
         .expect("Failed to parse secrets");
 
-    let response = client
+    let restdb_response = client
         .get(format!("{restdb_database}/rest/data"))
         .header("content-type", "application/json")
         .header("x-apikey", restdb_api_key)
@@ -20,10 +35,18 @@ pub async fn parse_xml(secrets: &str, client: Client) -> String {
         .await
         .expect("Failed to fetch RESTDB data");
 
-    println!(
-        "{}",
-        response.text().await.expect("Failed to read response text")
-    );
+    let database = restdb_response
+        .json::<Vec<Entry>>()
+        .await
+        .expect("Failed to parse JSON response");
+
+    let entry = database
+        .first()
+        .expect("No entries found in RESTDB response");
+
+    let last_updated =
+        DateTime::<Utc>::from_timestamp(entry.last_updated, 0).expect("Invalid timestamp");
+    let id: &str = &entry.id;
 
     let response = client
         .get(xml_feed)
@@ -39,6 +62,7 @@ pub async fn parse_xml(secrets: &str, client: Client) -> String {
     reader.config_mut().trim_text(true);
 
     let mut message = String::new();
+    let mut curr_date: i64 = 0;
 
     loop {
         match reader.read_event() {
@@ -48,9 +72,9 @@ pub async fn parse_xml(secrets: &str, client: Client) -> String {
                     .expect("Cannot decode text value");
 
                 let date = DateTime::parse_from_rfc3339(&text).expect("Invalid date format");
-                let cutoff = Utc::now() - chrono::Duration::days(DAYS_CUTOFF);
 
-                if date < cutoff {
+                if date < last_updated {
+                    curr_date = Utc::now().timestamp();
                     break;
                 }
             }
@@ -75,6 +99,26 @@ pub async fn parse_xml(secrets: &str, client: Client) -> String {
             _ => (),
         }
     }
+
+    client
+        .put(format!("{restdb_database}/rest/data/{id}"))
+        .header("content-type", "application/json")
+        .header("x-apikey", restdb_api_key)
+        .json(&json!(
+            {
+                "last_updated": curr_date,
+                "due_assignments": [
+                    {
+                        "subject": "Example subject",
+                        "title": "Example title",
+                        "due_date": "Example due date",
+                    }
+                ],
+            }
+        ))
+        .send()
+        .await
+        .expect("Failed to send data to RESTDB");
 
     message
 }
