@@ -6,11 +6,24 @@ use reqwest::Client;
 const DAYS_CUTOFF: i64 = 7;
 
 pub async fn parse_xml(secrets: &str, client: Client) -> String {
-    let [xml_feed, _restdb_api_key, _restdb_database]: [&str; 3] = secrets
+    let [xml_feed, restdb_api_key, restdb_database]: [&str; 3] = secrets
         .split_ascii_whitespace()
         .collect::<Vec<&str>>()
         .try_into()
         .expect("Failed to parse secrets");
+
+    let response = client
+        .get(format!("{restdb_database}/rest/data"))
+        .header("content-type", "application/json")
+        .header("x-apikey", restdb_api_key)
+        .send()
+        .await
+        .expect("Failed to fetch RESTDB data");
+
+    println!(
+        "{}",
+        response.text().await.expect("Failed to read response text")
+    );
 
     let response = client
         .get(xml_feed)
