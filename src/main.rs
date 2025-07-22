@@ -10,7 +10,7 @@ struct Data {}
 type Error = Box<dyn std::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, Data, Error>;
 
-// Had to use a global variable because the XML feed URL can't be passed as a parameter
+// Had to use a global variable because the secrets can't be passed as a parameter
 static SECRETS: LazyLock<Mutex<String>> = LazyLock::new(|| Mutex::new(String::new()));
 
 /// Checks for any new announcements
