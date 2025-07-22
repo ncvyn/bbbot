@@ -1,14 +1,18 @@
-use poise::serenity_prelude::{ClientBuilder, GatewayIntents};
+use poise::serenity_prelude::{ChannelId, ClientBuilder, GatewayIntents};
 use shuttle_runtime::SecretStore;
 use shuttle_serenity::ShuttleSerenity;
 use std::sync::LazyLock;
 use tokio::sync::Mutex;
+use tokio::time;
 
 mod parse;
 
 struct Data {}
 type Error = Box<dyn std::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, Data, Error>;
+
+const CHANNEL_ID: u64 = 1395424977502863471;
+const INTERVAL_SECS: u64 = 300; // 5 minutes
 
 // Had to use a global variable because the secrets can't be passed as a parameter
 static SECRETS: LazyLock<Mutex<String>> = LazyLock::new(|| Mutex::new(String::new()));
@@ -25,7 +29,7 @@ async fn check(ctx: Context<'_>) -> Result<(), Error> {
 async fn main(#[shuttle_runtime::Secrets] secret_store: SecretStore) -> ShuttleSerenity {
     let discord_token = secret_store
         .get("DISCORD_TOKEN")
-        .expect("'DISCORD_TOKEN' was not found");
+        .expect("Secret 'DISCORD_TOKEN' not found");
 
     for var in ["XML_FEED", "RESTDB_API_KEY", "RESTDB_DATABASE"] {
         if let Some(secret) = secret_store.get(var) {
@@ -43,6 +47,19 @@ async fn main(#[shuttle_runtime::Secrets] secret_store: SecretStore) -> ShuttleS
         .setup(|ctx, _ready, framework| {
             Box::pin(async move {
                 poise::builtins::register_globally(ctx, &framework.options().commands).await?;
+
+                let msg_ctx = ctx.clone();
+                tokio::spawn(async move {
+                    let channel_id = ChannelId::new(CHANNEL_ID);
+                    loop {
+                        let message = parse::parse_xml(&SECRETS).await;
+                        if let Err(e) = channel_id.say(&msg_ctx, message).await {
+                            eprintln!("Failed to send message: {e}");
+                        }
+                        time::sleep(time::Duration::from_secs(INTERVAL_SECS)).await;
+                    }
+                });
+
                 Ok(Data {})
             })
         })
