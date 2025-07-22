@@ -5,20 +5,24 @@ use tokio::sync::Mutex;
 
 const DAYS_CUTOFF: i64 = 7;
 
-pub async fn parse_xml(xml_feed: &Mutex<String>) {
-    let response = reqwest::get(xml_feed.lock().await.as_str())
-        .await
-        .expect("Request failed");
+pub async fn parse_xml(secrets: &Mutex<String>) -> String {
+    let secrets = secrets.lock().await;
+    let [xml_feed, _restdb_api_key, _restdb_database]: [&str; 3] = secrets
+        .split_ascii_whitespace()
+        .collect::<Vec<&str>>()
+        .try_into()
+        .expect("Failed to parse secrets");
+
+    let response = reqwest::get(xml_feed).await.expect("Request failed");
     let bytes = response
         .bytes()
         .await
         .expect("Failed to read response bytes");
 
     let mut reader = Reader::from_str(std::str::from_utf8(&bytes).expect("Invalid UTF-8"));
-
     reader.config_mut().trim_text(true);
 
-    let mut count = 0;
+    let mut message = String::new();
 
     loop {
         match reader.read_event() {
@@ -42,11 +46,10 @@ pub async fn parse_xml(xml_feed: &Mutex<String>) {
 
                 match text {
                     ref x if x.contains("New announcement") => {
-                        println!("New announcement found: {}", text);
+                        message.push_str(&format!("**New Announcement:** {text}\n"));
                     }
                     _ => {}
                 }
-                count += 1;
             }
 
             Ok(Event::Eof) => break,
@@ -57,5 +60,5 @@ pub async fn parse_xml(xml_feed: &Mutex<String>) {
         }
     }
 
-    println!("{count} titles found.");
+    message
 }

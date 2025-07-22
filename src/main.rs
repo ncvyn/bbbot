@@ -1,4 +1,3 @@
-use anyhow::Context as _;
 use poise::serenity_prelude::{ClientBuilder, GatewayIntents};
 use shuttle_runtime::SecretStore;
 use shuttle_serenity::ShuttleSerenity;
@@ -12,13 +11,13 @@ type Error = Box<dyn std::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, Data, Error>;
 
 // Had to use a global variable because the XML feed URL can't be passed as a parameter
-static XML_FEED: LazyLock<Mutex<String>> = LazyLock::new(|| Mutex::new(String::new()));
+static SECRETS: LazyLock<Mutex<String>> = LazyLock::new(|| Mutex::new(String::new()));
 
-/// Responds with "world!"
+/// Checks for any new announcements
 #[poise::command(slash_command)]
-async fn hello(ctx: Context<'_>) -> Result<(), Error> {
-    ctx.say("world!").await?;
-    parse::parse_xml(&XML_FEED).await;
+async fn check(ctx: Context<'_>) -> Result<(), Error> {
+    let message = parse::parse_xml(&SECRETS).await;
+    ctx.say(message).await?;
     Ok(())
 }
 
@@ -26,17 +25,19 @@ async fn hello(ctx: Context<'_>) -> Result<(), Error> {
 async fn main(#[shuttle_runtime::Secrets] secret_store: SecretStore) -> ShuttleSerenity {
     let discord_token = secret_store
         .get("DISCORD_TOKEN")
-        .context("'DISCORD_TOKEN' was not found")?;
+        .expect("'DISCORD_TOKEN' was not found");
 
-    XML_FEED.lock().await.push_str(
-        &secret_store
-            .get("XML_FEED")
-            .context("'XML_FEED' was not found")?,
-    );
+    for var in ["XML_FEED", "RESTDB_API_KEY", "RESTDB_DATABASE"] {
+        if let Some(secret) = secret_store.get(var) {
+            SECRETS.lock().await.push_str(&(secret + " "));
+        } else {
+            panic!("Secret '{var}' not found");
+        }
+    }
 
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
-            commands: vec![hello()],
+            commands: vec![check()],
             ..Default::default()
         })
         .setup(|ctx, _ready, framework| {
