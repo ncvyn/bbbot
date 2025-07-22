@@ -1,4 +1,5 @@
 use poise::serenity_prelude::{ChannelId, ClientBuilder, GatewayIntents};
+use reqwest::Client;
 use shuttle_runtime::SecretStore;
 use shuttle_serenity::ShuttleSerenity;
 use std::sync::LazyLock;
@@ -7,7 +8,9 @@ use tokio::time;
 
 mod parse;
 
-struct Data {}
+struct Data {
+    client: Client,
+}
 type Error = Box<dyn std::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, Data, Error>;
 
@@ -20,7 +23,8 @@ static SECRETS: LazyLock<Mutex<String>> = LazyLock::new(|| Mutex::new(String::ne
 /// Checks for any new announcements
 #[poise::command(slash_command)]
 async fn check(ctx: Context<'_>) -> Result<(), Error> {
-    let message = parse::parse_xml(&SECRETS).await;
+    let client = ctx.data().client.clone();
+    let message = parse::parse_xml(&SECRETS, client).await;
     ctx.say(message).await?;
     Ok(())
 }
@@ -48,19 +52,26 @@ async fn main(#[shuttle_runtime::Secrets] secret_store: SecretStore) -> ShuttleS
             Box::pin(async move {
                 poise::builtins::register_globally(ctx, &framework.options().commands).await?;
 
+                let client = Client::new();
+                let data = Data { client };
+
                 let msg_ctx = ctx.clone();
-                tokio::spawn(async move {
-                    let channel_id = ChannelId::new(CHANNEL_ID);
-                    loop {
-                        let message = parse::parse_xml(&SECRETS).await;
-                        if let Err(e) = channel_id.say(&msg_ctx, message).await {
-                            eprintln!("Failed to send message: {e}");
+                let client_ref = &data.client;
+                tokio::spawn({
+                    let client = client_ref.clone();
+                    async move {
+                        let channel_id = ChannelId::new(CHANNEL_ID);
+                        loop {
+                            let message = parse::parse_xml(&SECRETS, client.clone()).await;
+                            if let Err(e) = channel_id.say(&msg_ctx, message).await {
+                                eprintln!("Failed to send message: {e}");
+                            }
+                            time::sleep(time::Duration::from_secs(INTERVAL_SECS)).await;
                         }
-                        time::sleep(time::Duration::from_secs(INTERVAL_SECS)).await;
                     }
                 });
 
-                Ok(Data {})
+                Ok(data)
             })
         })
         .build();
