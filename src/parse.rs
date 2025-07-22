@@ -2,12 +2,10 @@ use chrono::{DateTime, Utc};
 use quick_xml::events::Event;
 use quick_xml::reader::Reader;
 use reqwest::Client;
-use tokio::sync::Mutex;
 
 const DAYS_CUTOFF: i64 = 7;
 
-pub async fn parse_xml(secrets: &Mutex<String>, client: Client) -> String {
-    let secrets = secrets.lock().await;
+pub async fn parse_xml(secrets: &str, client: Client) -> String {
     let [xml_feed, _restdb_api_key, _restdb_database]: [&str; 3] = secrets
         .split_ascii_whitespace()
         .collect::<Vec<&str>>()
