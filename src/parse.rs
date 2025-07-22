@@ -86,10 +86,22 @@ pub async fn parse_xml(secrets: &str, client: Client) -> String {
 
                 match text {
                     ref x if x.contains("New announcement") => {
-                        message.push_str(&format!("**New Announcement:** {text}\n"));
+                        message.push_str(&format!("**{text}**\n"));
                     }
                     _ => {}
                 }
+            }
+
+            Ok(Event::Start(ref e)) if e.name().as_ref() == b"content" => {
+                let text = reader
+                    .read_text(e.name())
+                    .expect("Cannot decode text value")
+                    .replace("&lt;", "<")
+                    .replace("&gt;", ">")
+                    .replace("&quot;", "\"");
+
+                let md = html2md::rewrite_html(&text, false);
+                println!("{md}");
             }
 
             Ok(Event::Eof) => break,
