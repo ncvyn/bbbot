@@ -13,7 +13,7 @@ struct Data {
 type Error = Box<dyn std::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, Data, Error>;
 
-const CHANNEL_ID: u64 = 1395424977502863471;
+const CHANNEL_ID: u64 = 1397578903685566544;
 const INTERVAL_SECS: u64 = 300; // 5 minutes
 
 /// Checks for any new announcements

@@ -111,19 +111,52 @@ pub async fn parse_xml(secrets: &str, client: Client) -> Vec<CreateEmbed> {
                     .replace("&lt;", "<")
                     .replace("&gt;", ">")
                     .replace("&quot;", "\"")
-                    .replace("&apos;", "'");
+                    .replace("&apos;", "'")
+                    .replace("&amp;", "&");
 
                 let md = html2md::rewrite_html(&text, false);
-                let md = md.lines().filter(|c| *c != "|").collect::<Vec<&str>>();
+                let md = md
+                    .lines()
+                    .filter(|s| *s != "|" && !s.to_lowercase().contains("this message supports"))
+                    .collect::<Vec<&str>>();
 
                 let [_, ref subject, ref title, ref act_name] = md[..4] else {
                     eprintln!("Failed to extract data, skipping it...");
                     continue;
                 };
+                let title = title.split(" from ").next().expect("Error parsing title");
 
-                let embed = CreateEmbed::new()
-                    .description(format!("# {title}"))
-                    .field(*subject, *act_name, false);
+                let is_announcement: bool = title.contains("announcement");
+                let inverse_idx = if is_announcement { 6 } else { 5 };
+                let link = md[md.len() - 1 - inverse_idx];
+                let needs_fixing = link.contains("[View]");
+                let link = if needs_fixing {
+                    let s = link.replace("=", " ").replace("&", " ").replace("%", " ");
+                    let v = s
+                        .split_ascii_whitespace()
+                        .filter(|s| s.starts_with('_'))
+                        .collect::<Vec<_>>();
+
+                    if is_announcement {
+                        &format!(
+                            "[View Announcement](https://adamson.blackboard.com/ultra/stream/announcement-detail?courseId={}&announcementId={})",
+                            v[1], v[2]
+                        )
+                    } else {
+                        &format!(
+                            "[View Task](https://adamson.blackboard.com/ultra/stream/assessment/{}/overview?courseId={})",
+                            v[2], v[1]
+                        )
+                    }
+                } else {
+                    link
+                };
+
+                let embed = CreateEmbed::new().description(format!("# {title}")).field(
+                    *subject,
+                    format!("{act_name}\n{link}"),
+                    false,
+                );
 
                 embeds.push(embed);
             }
