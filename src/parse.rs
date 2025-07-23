@@ -87,10 +87,14 @@ pub async fn parse_xml(secrets: &str, client: Client) -> Vec<CreateEmbed> {
                     .expect("Cannot decode text value");
 
                 match text.to_lowercase() {
-                    ref x if x.contains("submission received") => ignore_content = true,
-                    ref x if x.contains("new content") => ignore_content = true,
-                    ref x if x.contains("new items") => ignore_content = true,
-                    ref x if x.contains("due soon") => ignore_content = true,
+                    ref x
+                        if x.contains("submission received")
+                            || x.contains("new content")
+                            || x.contains("new items")
+                            || x.contains("due soon") =>
+                    {
+                        ignore_content = true
+                    }
                     _ => {}
                 }
             }
@@ -112,11 +116,14 @@ pub async fn parse_xml(secrets: &str, client: Client) -> Vec<CreateEmbed> {
                 let md = html2md::rewrite_html(&text, false);
                 let md = md.lines().filter(|c| *c != "|").collect::<Vec<&str>>();
 
-                println!("{md:?}");
+                let [_, ref subject, ref title, ref act_name] = md[..4] else {
+                    eprintln!("Failed to extract data, skipping it...");
+                    continue;
+                };
 
                 let embed = CreateEmbed::new()
-                    .title(format!("{} [{}]", md[1], md[0]))
-                    .description(format!("**{}:** {}", md[2], md[3]));
+                    .description(format!("# {title}"))
+                    .field(*subject, *act_name, false);
 
                 embeds.push(embed);
             }
@@ -141,7 +148,7 @@ pub async fn parse_xml(secrets: &str, client: Client) -> Vec<CreateEmbed> {
                         "subject": "Example subject",
                         "title": "Example title",
                         "due_date": "Example due date",
-                    }
+                    },
                 ],
             }
         ))
