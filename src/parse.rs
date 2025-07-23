@@ -127,7 +127,7 @@ pub async fn parse_xml(secrets: &str, client: Client) -> Vec<CreateEmbed> {
                 let is_announcement: bool = title.contains("announcement");
 
                 let title = if is_announcement {
-                    ":mega: New announcement"
+                    ":mega: New Announcement"
                 } else {
                     ":date: New Task"
                 };
