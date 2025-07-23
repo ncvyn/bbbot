@@ -124,9 +124,14 @@ pub async fn parse_xml(secrets: &str, client: Client) -> Vec<CreateEmbed> {
                     eprintln!("Failed to extract data, skipping it...");
                     continue;
                 };
-                let title = title.split(" from ").next().expect("Error parsing title");
-
                 let is_announcement: bool = title.contains("announcement");
+
+                let title = if is_announcement {
+                    ":mega: New announcement"
+                } else {
+                    ":date: New Task"
+                };
+
                 let inverse_idx = if is_announcement { 6 } else { 5 };
                 let link = md[md.len() - 1 - inverse_idx];
                 let needs_fixing = link.contains("[View]");
