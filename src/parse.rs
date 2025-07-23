@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use poise::serenity_prelude::CreateEmbed;
 use poise::serenity_prelude::json::json;
 use quick_xml::events::Event;
 use quick_xml::reader::Reader;
@@ -20,7 +21,7 @@ struct Assignment {
     due_date: String,
 }
 
-pub async fn parse_xml(secrets: &str, client: Client) -> String {
+pub async fn parse_xml(secrets: &str, client: Client) -> Vec<CreateEmbed> {
     let [xml_feed, restdb_api_key, restdb_database]: [&str; 3] = secrets
         .split_ascii_whitespace()
         .collect::<Vec<&str>>()
@@ -61,8 +62,9 @@ pub async fn parse_xml(secrets: &str, client: Client) -> String {
     let mut reader = Reader::from_str(std::str::from_utf8(&bytes).expect("Invalid UTF-8"));
     reader.config_mut().trim_text(true);
 
-    let mut message = String::new();
+    let mut embeds: Vec<CreateEmbed> = Vec::new();
     let mut curr_date: i64 = 0;
+    let mut ignore_content = false;
 
     loop {
         match reader.read_event() {
@@ -84,24 +86,39 @@ pub async fn parse_xml(secrets: &str, client: Client) -> String {
                     .read_text(e.name())
                     .expect("Cannot decode text value");
 
-                match text {
-                    ref x if x.contains("New announcement") => {
-                        message.push_str(&format!("**{text}**\n"));
-                    }
+                match text.to_lowercase() {
+                    ref x if x.contains("submission received") => ignore_content = true,
+                    ref x if x.contains("new content") => ignore_content = true,
+                    ref x if x.contains("new items") => ignore_content = true,
+                    ref x if x.contains("due soon") => ignore_content = true,
                     _ => {}
                 }
             }
 
             Ok(Event::Start(ref e)) if e.name().as_ref() == b"content" => {
+                if ignore_content {
+                    ignore_content = false;
+                    continue;
+                }
+
                 let text = reader
                     .read_text(e.name())
                     .expect("Cannot decode text value")
                     .replace("&lt;", "<")
                     .replace("&gt;", ">")
-                    .replace("&quot;", "\"");
+                    .replace("&quot;", "\"")
+                    .replace("&apos;", "'");
 
                 let md = html2md::rewrite_html(&text, false);
-                println!("{md}");
+                let md = md.lines().filter(|c| *c != "|").collect::<Vec<&str>>();
+
+                println!("{md:?}");
+
+                let embed = CreateEmbed::new()
+                    .title(format!("{} [{}]", md[1], md[0]))
+                    .description(format!("**{}:** {}", md[2], md[3]));
+
+                embeds.push(embed);
             }
 
             Ok(Event::Eof) => break,
@@ -132,5 +149,5 @@ pub async fn parse_xml(secrets: &str, client: Client) -> String {
         .await
         .expect("Failed to send data to RESTDB");
 
-    message
+    embeds
 }

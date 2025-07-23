@@ -1,4 +1,4 @@
-use poise::serenity_prelude::{ChannelId, ClientBuilder, GatewayIntents};
+use poise::serenity_prelude::{ChannelId, ClientBuilder, CreateMessage, GatewayIntents};
 use reqwest::Client;
 use shuttle_runtime::SecretStore;
 use shuttle_serenity::ShuttleSerenity;
@@ -22,10 +22,14 @@ async fn check(ctx: Context<'_>) -> Result<(), Error> {
     let secrets = &ctx.data().secrets;
     let client = ctx.data().client.clone();
 
-    let message = parse::parse_xml(secrets, client).await;
+    let embeds = parse::parse_xml(secrets, client).await;
+    if embeds.is_empty() {
+        return Ok(());
+    }
 
-    ctx.say(message).await?;
-
+    let builder = CreateMessage::new().embeds(embeds);
+    let channel_id = ChannelId::new(CHANNEL_ID);
+    channel_id.send_message(&ctx, builder).await?;
     Ok(())
 }
 
@@ -62,13 +66,18 @@ async fn main(#[shuttle_runtime::Secrets] secret_store: SecretStore) -> ShuttleS
                 tokio::spawn({
                     let client = data.client.clone();
                     let secrets = data.secrets.clone();
+
                     async move {
                         let channel_id = ChannelId::new(CHANNEL_ID);
+
                         loop {
-                            let message = parse::parse_xml(&secrets, client.clone()).await;
-                            if let Err(e) = channel_id.say(&msg_ctx, message).await {
+                            let embeds = parse::parse_xml(&secrets, client.clone()).await;
+                            let builder = CreateMessage::new().embeds(embeds);
+
+                            if let Err(e) = channel_id.send_message(&msg_ctx, builder).await {
                                 eprintln!("Failed to send message: {e}");
                             }
+
                             time::sleep(time::Duration::from_secs(INTERVAL_SECS)).await;
                         }
                     }
