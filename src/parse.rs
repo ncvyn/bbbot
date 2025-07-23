@@ -132,8 +132,8 @@ pub async fn parse_xml(secrets: &str, client: Client) -> Vec<CreateEmbed> {
                     ":date: New Task"
                 };
 
-                let inverse_idx = if is_announcement { 6 } else { 5 };
-                let link = md[md.len() - 1 - inverse_idx];
+                let inverse_idx = md.len() - 1 - (if is_announcement { 6 } else { 5 });
+                let link = md[inverse_idx];
                 let needs_fixing = link.contains("[View]");
                 let link = if needs_fixing {
                     let s = link.replace("=", " ").replace("&", " ").replace("%", " ");
@@ -157,9 +157,16 @@ pub async fn parse_xml(secrets: &str, client: Client) -> Vec<CreateEmbed> {
                     link
                 };
 
+                let announcement_text = if is_announcement {
+                    let idx = 4;
+                    &format!("\n{}\n", &md[idx..inverse_idx].join("\n"))
+                } else {
+                    ""
+                };
+
                 let embed = CreateEmbed::new().description(format!("# {title}")).field(
                     *subject,
-                    format!("{act_name}\n{link}"),
+                    format!("{act_name}\n{announcement_text}{link}"),
                     false,
                 );
 
