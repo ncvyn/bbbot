@@ -1,6 +1,6 @@
 # BB Bot
 
-**BB Bot** for Discord is still currently (and always will be) in development.
+**BB Bot** for Discord is ~~still currently (and always will be) in development.~~ **cancelled.**
 
 You are free to clone, fork, and/or edit this project to your needs, **however** support won't be provided.
 
